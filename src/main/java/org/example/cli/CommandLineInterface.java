@@ -47,6 +47,7 @@ public class CommandLineInterface {
                     default -> System.out.println("Invalid option");
                 }
             } catch (Exception e) {
+                // TODO : [RED-ERROR] ERROR org.example.cli.CommandLineInterface - Operation failed: java.net.ConnectException: Connection refused: connect
                 logger.error("Operation failed: {}", e.getMessage());
                 System.out.println("Error: " + e.getMessage());
             }
