@@ -6,11 +6,8 @@ import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
+
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -26,21 +23,37 @@ public class SFTPHandler {
             throw new IOException("Source is not a file: " + localPath);
         }
 
-        try (ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
-             BufferedInputStream bis = new BufferedInputStream(new FileInputStream(localPath))) {
+        ChannelSftp channel = null;
+        try {
+            channel = (ChannelSftp) session.openChannel("sftp");
             channel.connect();
-            channel.put(bis, remotePath, ChannelSftp.OVERWRITE);
-            logger.info("Uploaded: {} to {}", localPath, remotePath);
+
+            try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(localPath))) {
+                channel.put(bis, remotePath, ChannelSftp.OVERWRITE);
+                logger.info("Uploaded: {} to {}", localPath, remotePath);
+            }
+        } finally {
+            if (channel != null && channel.isConnected()) {
+                channel.disconnect();
+            }
         }
     }
 
     public void downloadFile(Session session, String remotePath, String localPath)
             throws JSchException, SftpException, IOException {
-        try (ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
-             BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(localPath))) {
+        ChannelSftp channel = null;
+        try {
+            channel = (ChannelSftp) session.openChannel("sftp");
             channel.connect();
-            channel.get(remotePath, bos);
-            logger.info("Downloaded: {} to {}", remotePath, localPath);
+
+            try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(localPath))) {
+                channel.get(remotePath, bos);
+                logger.info("Downloaded: {} to {}", remotePath, localPath);
+            }
+        } finally {
+            if (channel != null && channel.isConnected()) {
+                channel.disconnect();
+            }
         }
     }
 }
