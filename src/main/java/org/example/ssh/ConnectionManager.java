@@ -58,6 +58,10 @@ public class ConnectionManager {
         return activeSessions.get(label);
     }
 
+    public Map<String, Session> getActiveSessions() {
+        return Collections.unmodifiableMap(activeSessions);
+    }
+
     public void closeSession(String label) {
         Session session = activeSessions.remove(label);
         if (session != null && session.isConnected()) {

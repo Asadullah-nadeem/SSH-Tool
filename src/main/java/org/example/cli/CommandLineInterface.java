@@ -1,5 +1,7 @@
 package org.example.cli;
 
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.Session;
 import org.example.crypto.KeyGenerator;
 import org.example.crypto.KeyLoader;
 import org.example.crypto.KeyWriter;
@@ -7,11 +9,13 @@ import org.example.ssh.ConnectionManager;
 import org.example.ssh.PortForwarder;
 import org.example.ssh.SFTPHandler;
 import org.example.ssh.SSHCommandExecutor;
-import org.example.util.SecurityProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.util.SecurityProvider;
+
 import java.io.IOException;
 import java.security.KeyPair;
+import java.util.Map;
 
 public class CommandLineInterface {
     private static final Logger logger = LoggerFactory.getLogger(CommandLineInterface.class);
@@ -117,5 +121,114 @@ public class CommandLineInterface {
         System.out.println("Session created: " + label);
     }
 
-    // Other handler methods follow similar pattern...
+    private void executeCommand() throws Exception {
+        String label = UserInput.readLine("Session label: ");
+        Session session = connectionManager.getSession(label);
+        if (session == null) {
+            System.out.println("Session not found: " + label);
+            return;
+        }
+
+        String command = UserInput.readLine("Command to execute: ");
+        String result = commandExecutor.executeCommand(session, command);
+        System.out.println("Command output:\n" + result);
+    }
+
+    private void listSessions() {
+        Map<String, Session> sessions = connectionManager.getActiveSessions();
+        if (sessions.isEmpty()) {
+            System.out.println("No active sessions");
+            return;
+        }
+
+        System.out.println("\nActive Sessions:");
+        sessions.forEach((label, session) -> {
+            System.out.printf("- %s: %s@%s:%d (%s)%n",
+                    label,
+                    session.getUserName(),
+                    session.getHost(),
+                    session.getPort(),
+                    session.isConnected() ? "connected" : "disconnected");
+        });
+    }
+
+    private void closeSession() throws JSchException, IOException {
+        String label = UserInput.readLine("Session label to close: ");
+        connectionManager.closeSession(label);
+        System.out.println("Session closed: " + label);
+    }
+
+    private void handlePortForwarding() throws Exception {
+        System.out.println("\n--- Port Forwarding ---");
+        System.out.println("1. Local Port Forwarding");
+        System.out.println("2. Remote Port Forwarding");
+        System.out.println("3. Remove Forwarding");
+        System.out.println("4. Back to Main");
+        System.out.print("Select option: ");
+
+        int choice = UserInput.readInt("");
+        String label = UserInput.readLine("Session label: ");
+        Session session = connectionManager.getSession(label);
+        if (session == null) {
+            System.out.println("Session not found: " + label);
+            return;
+        }
+
+        switch (choice) {
+            case 1 -> {
+                int localPort = UserInput.readInt("Local port: ");
+                String remoteHost = UserInput.readLine("Remote host: ");
+                int remotePort = UserInput.readInt("Remote port: ");
+                portForwarder.createLocalForward(session, localPort, remoteHost, remotePort);
+                System.out.printf("Local forwarding created: %d -> %s:%d%n", localPort, remoteHost, remotePort);
+            }
+            case 2 -> {
+                int remotePort = UserInput.readInt("Remote port: ");
+                String localHost = UserInput.readLine("Local host: ");
+                int localPort = UserInput.readInt("Local port: ");
+                portForwarder.createRemoteForward(session, remotePort, localHost, localPort);
+                System.out.printf("Remote forwarding created: %s:%d -> %d%n", localHost, localPort, remotePort);
+            }
+            case 3 -> {
+                int port = UserInput.readInt("Port to remove forwarding from: ");
+                portForwarder.removeForward(session, port);
+                System.out.println("Forwarding removed from port: " + port);
+            }
+            case 4 -> { return; }
+            default -> System.out.println("Invalid option");
+        }
+    }
+
+    private void handleFileTransfer() throws Exception {
+        System.out.println("\n--- File Transfer ---");
+        System.out.println("1. Upload File");
+        System.out.println("2. Download File");
+        System.out.println("3. Back to Main");
+        System.out.print("Select option: ");
+
+        int choice = UserInput.readInt("");
+        String label = UserInput.readLine("Session label: ");
+        Session session = connectionManager.getSession(label);
+        if (session == null) {
+            System.out.println("Session not found: " + label);
+            return;
+        }
+
+        switch (choice) {
+            case 1 -> {
+                String localPath = UserInput.readLine("Local file path: ");
+                String remotePath = UserInput.readLine("Remote file path: ");
+                sftpHandler.uploadFile(session, localPath, remotePath);
+                System.out.println("File uploaded successfully");
+            }
+            case 2 -> {
+                String remotePath = UserInput.readLine("Remote file path: ");
+                String localPath = UserInput.readLine("Local file path: ");
+                sftpHandler.downloadFile(session, remotePath, localPath);
+                System.out.println("File downloaded successfully");
+            }
+            case 3 -> { return; }
+            default -> System.out.println("Invalid option");
+        }
+    }
 }
